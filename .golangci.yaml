@@ -141,9 +141,6 @@ linters-settings:
         # The flag is passed to the ruleguard 'debug-group' argument.
         # Default: ""
         debug: 'emptyDecl'
-        # Deprecated, use 'failOn' param.
-        # If set to true, identical to failOn='all', otherwise failOn=''
-        failOnError: false
         # Determines the behavior when an error occurs while parsing ruleguard files.
         # If flag is not set, log error and skip rule files that contain an error.
         # If flag is set, the value must be a comma-separated list of error conditions.
@@ -187,10 +184,6 @@ linters-settings:
 
   gofumpt:
     extra-rules: true
-
-  golint:
-    # Minimal confidence for issues, default is 0.8.
-    min-confidence: 0.8
 
   govet:
     enable:

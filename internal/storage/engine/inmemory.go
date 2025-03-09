@@ -45,12 +45,6 @@ func (db *InMemory) Get(key string) (string, error) {
 }
 
 // Del удаляет ключ из хранилища.
-func (db *InMemory) Del(key string) error {
-	if _, err := db.Get(key); err != nil {
-		return err
-	}
-
+func (db *InMemory) Del(key string) {
 	delete(db.data, key)
-
-	return nil
 }

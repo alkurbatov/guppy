@@ -79,19 +79,28 @@ func TestInMemory_GetUnknownKey(t *testing.T) {
 }
 
 func TestInMemory_Del(t *testing.T) {
-	sut := fillInMemoryEngine(t)
+	tt := []struct {
+		name string
+		key  string
+	}{
+		{
+			name: "Delete existing key",
+			key:  "key",
+		},
+		{
+			name: "Delete unexisting key",
+			key:  "xxx",
+		},
+	}
 
-	err := sut.Del("key")
-	require.NoError(t, err)
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			sut := fillInMemoryEngine(t)
 
-	_, err = sut.Get("key")
-	require.ErrorIs(t, err, engine.ErrKeyNotFound)
-}
+			sut.Del(tc.key)
 
-func TestInMemory_DelUnknownKey(t *testing.T) {
-	sut := engine.NewInMemory()
-
-	err := sut.Del("xxx")
-
-	require.ErrorIs(t, err, engine.ErrKeyNotFound)
+			_, err := sut.Get(tc.key)
+			require.ErrorIs(t, err, engine.ErrKeyNotFound)
+		})
+	}
 }

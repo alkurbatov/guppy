@@ -48,7 +48,9 @@ func TestParseText(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := parser.ParseText(tc.input)
+			var sut parser.Parser
+
+			result, err := sut.ParseText(tc.input)
 
 			require.NoError(t, err)
 			require.Equal(t, tc.expected, result)
@@ -65,17 +67,17 @@ func TestParseText_BadInput(t *testing.T) {
 		{
 			name:     "Empty input",
 			input:    "",
-			expected: parser.ErrBadInput,
+			expected: parser.ErrEmptyInput,
 		},
 		{
 			name:     "Only spaces",
 			input:    "     ",
-			expected: parser.ErrUnknownCommand,
+			expected: parser.ErrEmptyInput,
 		},
 		{
 			name:     "Malformed input",
 			input:    "ksdsjkdjjdjs",
-			expected: parser.ErrBadInput,
+			expected: parser.ErrUnknownCommand,
 		},
 		{
 			name:     "Unknown command",
@@ -106,7 +108,9 @@ func TestParseText_BadInput(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := parser.ParseText(tc.input)
+			var sut parser.Parser
+
+			_, err := sut.ParseText(tc.input)
 
 			require.ErrorIs(t, err, tc.expected)
 		})
@@ -158,7 +162,9 @@ func TestParseText_ArgsError(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := parser.ParseText(tc.input)
+			var sut parser.Parser
+
+			_, err := sut.ParseText(tc.input)
 
 			require.ErrorIs(t, err, tc.expected)
 		})

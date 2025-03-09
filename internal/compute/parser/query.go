@@ -9,6 +9,12 @@ const (
 	DEL Command = "DEL"
 )
 
+var commandArgsCount = map[Command]int{
+	SET: 2,
+	GET: 1,
+	DEL: 1,
+}
+
 // Query запрос к базе данных.
 type Query struct {
 	// Command идентификатор выполняемой команды.

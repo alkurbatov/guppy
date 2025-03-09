@@ -7,6 +7,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/alkurbatov/guppy/internal/compute/parser"
 	"github.com/alkurbatov/guppy/internal/database"
 	"github.com/alkurbatov/guppy/internal/storage/engine"
 )
@@ -19,8 +20,9 @@ func run() int {
 	}
 	defer logger.Sync() //nolint: errcheck //нет смысла обрабатывать ошибку, приложение завершается
 
-	engine := engine.NewInMemory()
-	db := database.New(logger, engine)
+	var queryParser parser.Parser
+	inMemoryEngine := engine.NewInMemory()
+	db := database.New(logger, queryParser, inMemoryEngine)
 
 	fmt.Println("Enter query:")
 

@@ -16,30 +16,39 @@ func TestHandleRequest(t *testing.T) {
 	tt := []struct {
 		name     string
 		input    string
-		setup    func(m *database.MockEngine)
+		setup    func(mockParser *database.MockParser, mockEngine *database.MockEngine)
 		expected string
 	}{
 		{
 			name:  "Set key to value",
 			input: "SET weather_2_pm cold_moscow_weather",
-			setup: func(m *database.MockEngine) {
-				m.EXPECT().Set("weather_2_pm", "cold_moscow_weather").Return(nil)
+			setup: func(mockParser *database.MockParser, mockEngine *database.MockEngine) {
+				q := parser.NewQuery(parser.SET, "weather_2_pm", "cold_moscow_weather")
+				mockParser.EXPECT().ParseText("SET weather_2_pm cold_moscow_weather").Return(q, nil)
+
+				mockEngine.EXPECT().Set("weather_2_pm", "cold_moscow_weather").Return(nil)
 			},
 			expected: "OK",
 		},
 		{
 			name:  "Get a key",
 			input: "GET /etc/nginx/config",
-			setup: func(m *database.MockEngine) {
-				m.EXPECT().Get("/etc/nginx/config").Return("some-value", nil)
+			setup: func(mockParser *database.MockParser, mockEngine *database.MockEngine) {
+				q := parser.NewQuery(parser.GET, "/etc/nginx/config")
+				mockParser.EXPECT().ParseText("GET /etc/nginx/config").Return(q, nil)
+
+				mockEngine.EXPECT().Get("/etc/nginx/config").Return("some-value", nil)
 			},
 			expected: "some-value",
 		},
 		{
 			name:  "Delete a key",
 			input: "DEL user_****",
-			setup: func(m *database.MockEngine) {
-				m.EXPECT().Del("user_****").Return(nil)
+			setup: func(mockParser *database.MockParser, mockEngine *database.MockEngine) {
+				q := parser.NewQuery(parser.DEL, "user_****")
+				mockParser.EXPECT().ParseText("DEL user_****").Return(q, nil)
+
+				mockEngine.EXPECT().Del("user_****")
 			},
 			expected: "OK",
 		},
@@ -48,9 +57,10 @@ func TestHandleRequest(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
-			m := database.NewMockEngine(ctrl)
-			tc.setup(m)
-			sut := database.New(zap.NewNop(), m)
+			mockParser := database.NewMockParser(ctrl)
+			mockEngine := database.NewMockEngine(ctrl)
+			tc.setup(mockParser, mockEngine)
+			sut := database.New(zap.NewNop(), mockParser, mockEngine)
 
 			result, err := sut.ProcessRequest(tc.input)
 
@@ -60,34 +70,50 @@ func TestHandleRequest(t *testing.T) {
 	}
 }
 
-func TestHandleRequest_EngineFailure(t *testing.T) {
+func TestHandleRequest_DependenciesFailure(t *testing.T) {
 	tt := []struct {
 		name     string
 		input    string
-		setup    func(m *database.MockEngine)
+		setup    func(mockParser *database.MockParser, mockEngine *database.MockEngine)
 		expected error
 	}{
 		{
-			name:  "Set key to value",
+			name:  "Bad query",
+			input: "SELECT FROM *",
+			setup: func(mockParser *database.MockParser, _ *database.MockEngine) {
+				var q parser.Query
+				mockParser.EXPECT().ParseText("SELECT FROM *").Return(q, parser.ErrUnknownCommand)
+			},
+			expected: parser.ErrUnknownCommand,
+		},
+		{
+			name:  "Unexpected command from parser",
+			input: "GET /etc/nginx/config",
+			setup: func(mockParser *database.MockParser, _ *database.MockEngine) {
+				q := parser.NewQuery("XXX")
+				mockParser.EXPECT().ParseText("GET /etc/nginx/config").Return(q, nil)
+			},
+			expected: parser.ErrUnknownCommand,
+		},
+		{
+			name:  "Set key to empty value",
 			input: "SET weather_2_pm cold_moscow_weather",
-			setup: func(m *database.MockEngine) {
-				m.EXPECT().Set("weather_2_pm", "cold_moscow_weather").Return(engine.ErrEmptyKey)
+			setup: func(mockParser *database.MockParser, mockEngine *database.MockEngine) {
+				q := parser.NewQuery(parser.SET, "weather_2_pm", "cold_moscow_weather")
+				mockParser.EXPECT().ParseText("SET weather_2_pm cold_moscow_weather").Return(q, nil)
+
+				mockEngine.EXPECT().Set("weather_2_pm", "cold_moscow_weather").Return(engine.ErrEmptyKey)
 			},
 			expected: engine.ErrEmptyKey,
 		},
 		{
-			name:  "Get a key",
+			name:  "Get unexisting key",
 			input: "GET /etc/nginx/config",
-			setup: func(m *database.MockEngine) {
-				m.EXPECT().Get("/etc/nginx/config").Return("", engine.ErrKeyNotFound)
-			},
-			expected: engine.ErrKeyNotFound,
-		},
-		{
-			name:  "Delete a key",
-			input: "DEL user_****",
-			setup: func(m *database.MockEngine) {
-				m.EXPECT().Del("user_****").Return(engine.ErrKeyNotFound)
+			setup: func(mockParser *database.MockParser, mockEngine *database.MockEngine) {
+				q := parser.NewQuery(parser.GET, "/etc/nginx/config")
+				mockParser.EXPECT().ParseText("GET /etc/nginx/config").Return(q, nil)
+
+				mockEngine.EXPECT().Get("/etc/nginx/config").Return("", engine.ErrKeyNotFound)
 			},
 			expected: engine.ErrKeyNotFound,
 		},
@@ -96,21 +122,14 @@ func TestHandleRequest_EngineFailure(t *testing.T) {
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
-			m := database.NewMockEngine(ctrl)
-			tc.setup(m)
-			sut := database.New(zap.NewNop(), m)
+			mockParser := database.NewMockParser(ctrl)
+			mockEngine := database.NewMockEngine(ctrl)
+			tc.setup(mockParser, mockEngine)
+			sut := database.New(zap.NewNop(), mockParser, mockEngine)
 
 			_, err := sut.ProcessRequest(tc.input)
 
 			require.ErrorIs(t, err, tc.expected)
 		})
 	}
-}
-
-func TestHandleRequest_BadQuery(t *testing.T) {
-	sut := database.New(zap.NewNop(), nil)
-
-	_, err := sut.ProcessRequest("SELECT FROM *")
-
-	require.ErrorIs(t, err, parser.ErrUnknownCommand)
 }
